@@ -228,6 +228,15 @@
   }
   @media (prefers-reduced-motion:reduce){ .flashcard-inner{ transition:none; } }
 
+  /* ---- preview (ver respuestas sin finalizar) ---- */
+  .continue-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:500;
+    display:flex; justify-content:center; padding:14px 16px;
+    background:var(--paper-raised); border-top:1px solid var(--line);
+    box-shadow:0 -8px 20px -12px rgba(27,38,33,.25);
+  }
+  .continue-bar .btn{ max-width:420px; width:100%; }
+
   /* ---- gamification: XP, streak, league ---- */
   .stats-strip{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
   .stat-pill{
@@ -1152,6 +1161,27 @@ function showConfirm(title,message,onYes){
   overlay.addEventListener("click", function(e){ if(e.target===overlay) close(); });
 }
 
+function showFinishOptions(title,message,onViewAnswers,onFinish){
+  var overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML =
+    '<div class="modal-box">'+
+      '<h3 class="display">'+title+'</h3>'+
+      '<p>'+message+'</p>'+
+      '<div class="modal-actions" style="flex-wrap:wrap;">'+
+        '<button class="btn subtle" id="modalCancel">Cancelar</button>'+
+        '<button class="btn ghost" id="modalView">Ver respuestas</button>'+
+        '<button class="btn" id="modalOk">Finalizar de todas formas</button>'+
+      '</div>'+
+    '</div>';
+  (appEl.parentNode || document.body).appendChild(overlay);
+  function close(){ if(overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+  document.getElementById("modalCancel").addEventListener("click", close);
+  document.getElementById("modalView").addEventListener("click", function(){ close(); onViewAnswers(); });
+  document.getElementById("modalOk").addEventListener("click", function(){ close(); onFinish(); });
+  overlay.addEventListener("click", function(e){ if(e.target===overlay) close(); });
+}
+
 function shuffleCopy(arr){
   var a = arr.slice();
   for(var i=a.length-1;i>0;i--){
@@ -1166,6 +1196,8 @@ var BLOQUES = {
   BLOQUE2:{ label:"Bloque II", parts:[["MI",30],["PED",30]] }
 };
 
+var PRACTICE_SET_SIZE = 30;
+
 function pickN(area,n){
   var pool = Q.filter(function(q){return q.area===area;});
   return shuffleCopy(pool).slice(0,n);
@@ -1179,8 +1211,7 @@ function buildSet(mode){
     });
     return combined;
   }
-  var list = Q.filter(function(q){return q.area===mode;});
-  return shuffleCopy(list);
+  return pickN(mode, PRACTICE_SET_SIZE);
 }
 
 function fmtClock(sec){
@@ -1225,7 +1256,7 @@ function renderSelect(){
   '<p class="label" style="margin:26px 0 0;">Práctica libre por área</p>'+
   '<p class="note" style="margin:4px 0 0;">Sin límite de tiempo. Podés repetir cada área todas las veces que quieras.</p>'+
   '<div class="mode-grid">'+
-    Object.keys(AREAS).map(function(code){ return modeCard(code, AREAS[code].label, COUNTS[code]||0); }).join("")+
+    Object.keys(AREAS).map(function(code){ return modeCard(code, AREAS[code].label, Math.min(PRACTICE_SET_SIZE, COUNTS[code]||0)); }).join("")+
   '</div>'+
   '<p class="label" style="margin:26px 0 0;">Flashcards</p>'+
   '<p class="note" style="margin:4px 0 0;">Repaso rápido con repetición espaciada, 5 mazos por especialidad.</p>'+
@@ -1431,9 +1462,13 @@ function confirmFinish(){
   var unanswered = state.set.length - Object.keys(state.answers).length;
   var label = isSimulacro(state.mode) ? "simulacro" : "práctica";
   if(unanswered>0){
-    showConfirm(
+    showFinishOptions(
       "Finalizar "+label,
-      "Tenés "+unanswered+" pregunta(s) sin responder. ¿Finalizar de todas formas?",
+      "Tenés "+unanswered+" pregunta(s) sin responder. Podés ver las respuestas hasta ahora, seguir respondiendo, o finalizar de todas formas.",
+      function(){
+        state.screen = "previewAnswers";
+        render();
+      },
       function(){
         clearInterval(state.timerHandle);
         finishExam();
@@ -1632,6 +1667,65 @@ function renderReviewList(){
   if(list.children.length===0){
     list.innerHTML = '<p class="label">No hay preguntas en este filtro.</p>';
   }
+}
+
+/* ======================= PREVIEW (ver respuestas sin finalizar) ======================= */
+function renderPreviewAnswers(){
+  var total = state.set.length;
+  var correct=0, skipped=0;
+  var byArea = {};
+  state.set.forEach(function(q){
+    if(!byArea[q.area]) byArea[q.area]={correct:0,total:0};
+    byArea[q.area].total++;
+    var given = state.answers[q.id];
+    if(given===undefined) skipped++;
+    else if(given===q.ans){ correct++; byArea[q.area].correct++; }
+  });
+  var answered = total - skipped;
+  var pct = total>0 ? Math.round((correct/total)*100) : 0;
+
+  var html = ''+
+  '<div class="case-bar">'+
+    '<div class="id"><span class="label">Vista previa</span><span class="num display">Respuestas hasta ahora</span></div>'+
+    '<div class="stamp">'+answered+' / '+total+' respondidas</div>'+
+  '</div>'+
+  '<div class="doc">'+
+    '<h2 class="display">¿Cómo vas hasta ahora?</h2>'+
+    '<p class="note">Esto es solo una vista previa: todavía no finalizaste. Podés seguir respondiendo cuando quieras con el botón de abajo.</p>'+
+    '<div class="score-row">'+
+      scoreItem("Puntaje", correct+" / "+total)+
+      scoreItem("Porcentaje", pct+"%")+
+      scoreItem("Sin responder", String(skipped))+
+    '</div>'+
+    '<p class="label" style="margin-top:22px;">Desempeño por área</p>'+
+    '<div class="area-breakdown">'+
+      Object.keys(byArea).map(function(a){
+        var d = byArea[a];
+        var p = d.total? Math.round(d.correct/d.total*100):0;
+        return '<div class="area-row"><span class="name">'+AREAS[a].label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div><span class="frac mono">'+d.correct+'/'+d.total+'</span></div>';
+      }).join("")+
+    '</div>'+
+    '<div class="filter-row" id="filterRow">'+
+      chip("all","Todas")+chip("wrong","Incorrectas")+chip("skip","Sin responder")+
+    '</div>'+
+    '<div class="review-list" id="reviewList"></div>'+
+  '</div>'+
+  '<div style="height:76px;"></div>'+
+  '<div class="continue-bar">'+
+    '<button class="btn" id="continueBtn">Continuar respondiendo</button>'+
+  '</div>';
+
+  appEl.innerHTML = html;
+  renderReviewList();
+
+  document.getElementById("continueBtn").addEventListener("click",function(){
+    state.screen = "exam";
+    render();
+  });
+  ["all","wrong","skip"].forEach(function(f){
+    var el = document.getElementById("chip-"+f);
+    if(el) el.addEventListener("click",function(){ reportFilter=f; renderPreviewAnswers(); });
+  });
 }
 
 function optText(q,key){
@@ -2044,6 +2138,7 @@ function render(){
   else if(state.screen==="flashStudy") renderFlashStudy();
   else if(state.screen==="flashSummary") renderFlashSummary();
   else if(state.screen==="league") renderLeague();
+  else if(state.screen==="previewAnswers") renderPreviewAnswers();
 }
 
 /* ======================= SERVER HYDRATION ======================= */
