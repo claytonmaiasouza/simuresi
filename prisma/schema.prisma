@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PlanStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+
+  planStatus    PlanStatus @default(TRIAL)
+  trialEndsAt   DateTime
+  planUpdatedAt DateTime   @default(now())
+  planUpdatedBy String?
+
+  examAttempts  ExamAttempt[]
+  srsStates     FlashcardSrsState[]
+  gamify        GamifyState?
+  leagueResults LeagueWeekResult[]
+}
+
+model ExamAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  mode        String
+  modeLabel   String
+  total       Int
+  answered    Int
+  correct     Int
+  usedSeconds Int
+  timeBudget  Int
+  exitedEarly Boolean  @default(false)
+  isSimulacro Boolean
+  byArea      Json
+  createdAt   DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model FlashcardSrsState {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId    String
+  box       Int      @default(0)
+  due       DateTime @default(now())
+  reps      Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, cardId])
+  @@index([userId, due])
+}
+
+model GamifyState {
+  userId               String   @id
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  xp                   Int      @default(0)
+  lastXpDate           String?
+  streakCurrent        Int      @default(0)
+  streakLongest        Int      @default(0)
+  streakLastActiveDate String?
+  streakFreezes        Int      @default(1)
+  tierIndex            Int      @default(0)
+  weekKey              String?
+  weekXp               Int      @default(0)
+  updatedAt            DateTime @updatedAt
+}
+
+/// One durable row per (user, week) so a "you were promoted/demoted" banner
+/// stays queryable even after tierIndex has since moved on.
+model LeagueWeekResult {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekKey     String
+  tierIndex   Int
+  weekXp      Int
+  rank        Int?
+  totalInTier Int?
+  promoted    Boolean  @default(false)
+  demoted     Boolean  @default(false)
+  seen        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, weekKey])
+  @@index([weekKey, tierIndex])
+}

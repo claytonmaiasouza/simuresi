@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - db
+    networks:
+      - fintrack_default
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=fintrack_default"
+      - "traefik.http.routers.conarem.rule=Host(`calendar.guiafinanceiro.pro`)"
+      - "traefik.http.routers.conarem.entrypoints=websecure"
+      - "traefik.http.routers.conarem.tls.certresolver=letsencrypt"
+      - "traefik.http.services.conarem.loadbalancer.server.port=3000"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: conarem
+      POSTGRES_USER: conarem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    # deliberately no `ports:` mapping -- unreachable from the host or from
+    # fintrack_default, only from `app` via the private `internal` network
+
+volumes:
+  db_data:
+
+networks:
+  fintrack_default:
+    external: true
+  internal:
+    driver: bridge
