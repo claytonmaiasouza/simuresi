@@ -4,14 +4,14 @@ const { requireAuth } = require("../middleware/requireAuth");
 const { ensureRollover } = require("../services/xpAward");
 const leagueService = require("../services/league");
 
-const router = express.Router();
-router.use(requireAuth);
-
-// Replaces loadGamify()/ensureWeeklyLeague(g) -- returns the same shape
-// defaultGamify() produced client-side, so the frontend's existing render
-// functions (which read g.xp, g.streak.current, g.league.tierIndex, etc.)
-// need no changes once loadGamify() is rewritten to return this response.
-router.get("/", async (req, res, next) => {
+// Mounted at /api/gamify. Replaces loadGamify()/ensureWeeklyLeague(g) --
+// returns the same shape defaultGamify() produced client-side, so the
+// frontend's existing render functions (which read g.xp, g.streak.current,
+// g.league.tierIndex, etc.) need no changes once loadGamify() is rewritten
+// to return this response.
+const gamifyRouter = express.Router();
+gamifyRouter.use(requireAuth);
+gamifyRouter.get("/", async (req, res, next) => {
   try {
     const { row } = await ensureRollover(req.user.id);
     res.json({
@@ -36,10 +36,13 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// Replaces the client-only generateBots()-based fake leaderboard in
-// renderLeague() with a real ranking among registered users (padded with
-// deterministic bots only when a tier is too sparse to feel alive yet).
-router.get("/league", async (req, res, next) => {
+// Mounted at /api/league. Replaces the client-only generateBots()-based fake
+// leaderboard in renderLeague() with a real ranking among registered users
+// (padded with deterministic bots only when a tier is too sparse to feel
+// alive yet).
+const leagueRouter = express.Router();
+leagueRouter.use(requireAuth);
+leagueRouter.get("/", async (req, res, next) => {
   try {
     const { row } = await ensureRollover(req.user.id);
     const tier = leagueService.LEAGUE_TIERS[row.tierIndex];
@@ -77,4 +80,4 @@ router.get("/league", async (req, res, next) => {
   }
 });
 
-module.exports = router;
+module.exports = { gamifyRouter, leagueRouter };

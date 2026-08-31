@@ -38,10 +38,13 @@ app.use(
   })
 );
 
+const { gamifyRouter, leagueRouter } = require("./routes/gamify");
+
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/history", require("./routes/history"));
 app.use("/api/srs", require("./routes/srs"));
-app.use("/api/gamify", require("./routes/gamify"));
+app.use("/api/gamify", gamifyRouter);
+app.use("/api/league", leagueRouter);
 app.use("/api/admin", require("./routes/admin"));
 
 const frontendDir = path.join(__dirname, "..", "frontend");
