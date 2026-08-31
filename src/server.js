@@ -17,7 +17,23 @@ const app = express();
 // to set the secure cookie.
 app.set("trust proxy", 1);
 
-app.use(helmet());
+// The frontend is a single-file-style app (all logic in inline <script>
+// blocks, no bundler/build step) -- helmet's default CSP (script-src 'self'
+// with no 'unsafe-inline') silently blocks every inline script, which broke
+// all interactivity on both pages. There's no third-party script inclusion
+// risk here (no CDN scripts, first-party HTML only), so allowing inline
+// scripts is an acceptable, deliberate trade-off for this app's shape.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "'unsafe-inline'"],
+        "script-src-attr": null,
+      },
+    },
+  })
+);
 app.use(express.json({ limit: "256kb" }));
 app.use(cookieParser());
 
