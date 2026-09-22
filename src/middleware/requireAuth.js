@@ -25,6 +25,13 @@ async function requireAuth(req, res, next) {
     });
   }
 
+  if (user.planStatus === "ACTIVE" && user.planEndsAt && user.planEndsAt < new Date()) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { planStatus: "EXPIRED", planUpdatedAt: new Date() },
+    });
+  }
+
   req.user = user;
   next();
 }

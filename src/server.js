@@ -62,6 +62,7 @@ app.use("/api/srs", require("./routes/srs"));
 app.use("/api/gamify", gamifyRouter);
 app.use("/api/league", leagueRouter);
 app.use("/api/admin", require("./routes/admin"));
+app.use("/api/billing", require("./routes/billing"));
 
 const frontendDir = path.join(__dirname, "..", "frontend");
 
@@ -75,6 +76,14 @@ app.get("/", (req, res) => {
     return res.redirect("/app");
   }
   res.sendFile(path.join(frontendDir, "index.html"));
+});
+
+app.get("/admin", async (req, res) => {
+  if (!req.session || !req.session.userId) return res.redirect("/");
+  const prisma = require("./db");
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, select: { role: true } });
+  if (!user || user.role !== "ADMIN") return res.redirect("/app");
+  res.sendFile(path.join(frontendDir, "admin.html"));
 });
 
 app.get("/app", (req, res) => {

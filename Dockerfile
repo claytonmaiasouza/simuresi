@@ -11,5 +11,6 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY src ./src
 COPY frontend ./frontend
+COPY scripts ./scripts
 EXPOSE 3000
 CMD ["node", "src/server.js"]

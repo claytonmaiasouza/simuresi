@@ -33,6 +33,7 @@ model User {
 
   planStatus    PlanStatus @default(TRIAL)
   trialEndsAt   DateTime
+  planEndsAt    DateTime?
   planUpdatedAt DateTime   @default(now())
   planUpdatedBy String?
 
@@ -40,6 +41,7 @@ model User {
   srsStates     FlashcardSrsState[]
   gamify        GamifyState?
   leagueResults LeagueWeekResult[]
+  payments      Payment[]
 }
 
 model ExamAttempt {
@@ -109,4 +111,36 @@ model LeagueWeekResult {
 
   @@unique([userId, weekKey])
   @@index([weekKey, tierIndex])
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderNumber   Int           @unique @default(autoincrement())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planCode      String
+  months        Int
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+  pagoparHash   String?       @unique
+  paymentMethod String?
+  note          String?
+  createdBy     String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }

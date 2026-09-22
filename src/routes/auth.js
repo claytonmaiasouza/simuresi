@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { z } = require("zod");
 const prisma = require("../db");
 const config = require("../config");
+const settings = require("../services/settings");
 const { validateBody } = require("../middleware/validate");
 const { authLimiter, loginByEmailLimiter } = require("../middleware/rateLimit");
 const { requireAuth } = require("../middleware/requireAuth");
@@ -40,6 +41,7 @@ function publicUser(user) {
     role: user.role,
     planStatus: user.planStatus,
     trialEndsAt: user.trialEndsAt,
+    planEndsAt: user.planEndsAt,
   };
 }
 
@@ -118,8 +120,16 @@ router.post("/logout", (req, res) => {
   });
 });
 
-router.get("/me", requireAuth, (req, res) => {
-  res.json(publicUser(req.user));
+router.get("/me", requireAuth, async (req, res, next) => {
+  try {
+    const s = await settings.get();
+    res.json({
+      ...publicUser(req.user),
+      payment: { url: s.url, whatsapp: s.whatsapp, instructions: s.instructions },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
