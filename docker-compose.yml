@@ -11,10 +11,16 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=fintrack_default"
-      - "traefik.http.routers.conarem.rule=Host(`calendar.guiafinanceiro.pro`)"
-      - "traefik.http.routers.conarem.entrypoints=websecure"
-      - "traefik.http.routers.conarem.tls.certresolver=letsencrypt"
+      # calendar.guiafinanceiro.pro router intentionally removed (2026-09-22):
+      # the app now only answers on its own domain, simuresi.com.py. The old
+      # subdomain is unreachable through Traefik (default cert + 404), with
+      # no redirect. Service name "conarem" kept as-is, just no longer tied
+      # to that hostname.
       - "traefik.http.services.conarem.loadbalancer.server.port=3000"
+      - "traefik.http.routers.simuresi.rule=Host(`simuresi.com.py`) || Host(`www.simuresi.com.py`)"
+      - "traefik.http.routers.simuresi.entrypoints=websecure"
+      - "traefik.http.routers.simuresi.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.simuresi.service=conarem"
 
   db:
     image: postgres:16-alpine

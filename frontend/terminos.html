@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reglas de uso — SimuResi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EEF0EA; --paper-raised:#F8F9F4; --paper-deep:#E3E6DD;
+    --ink:#1B2621; --ink-soft:#4B5750; --accent:#0E6E56; --accent-soft:#DCEAE4; --accent-ink:#0A4B3C;
+    --critical:#A8362B; --critical-soft:#F3DEDA; --warn:#96631A; --warn-soft:#F1E6D2;
+    --line:#C9CFC3; --shadow: 0 1px 0 rgba(27,38,33,.06), 0 8px 20px -12px rgba(27,38,33,.25);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0F1613; --paper-raised:#172420; --paper-deep:#0B100D;
+      --ink:#E7EDE7; --ink-soft:#A9B6AE; --accent:#59D9B3; --accent-soft:#16352C; --accent-ink:#8FE9CD;
+      --critical:#E2695C; --critical-soft:#3A211D; --warn:#D9A94E; --warn-soft:#3A2E14;
+      --line:#2B3A34; --shadow: 0 1px 0 rgba(0,0,0,.4), 0 10px 24px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0F1613; --paper-raised:#172420; --paper-deep:#0B100D;
+    --ink:#E7EDE7; --ink-soft:#A9B6AE; --accent:#59D9B3; --accent-soft:#16352C; --accent-ink:#8FE9CD;
+    --critical:#E2695C; --critical-soft:#3A211D; --warn:#D9A94E; --warn-soft:#3A2E14;
+    --line:#2B3A34; --shadow: 0 1px 0 rgba(0,0,0,.4), 0 10px 24px -14px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .display{ font-family:"Roboto Slab",Rockwell,Georgia,serif; font-weight:800; text-wrap:balance; letter-spacing:-.01em; }
+  .mono{ font-family:ui-monospace,"SF Mono",Consolas,"Roboto Mono",monospace; font-variant-numeric:tabular-nums; }
+  .label{ font-size:.7rem; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-soft); font-weight:700; }
+  a{color:inherit;}
+  img,svg{display:block;}
+  .wrap{ max-width:1120px; margin:0 auto; padding-inline:20px; }
+  @media (max-width:640px){ .wrap{ padding-inline:18px; } }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    font:inherit; font-weight:700; font-size:.92rem; cursor:pointer; text-decoration:none;
+    border-radius:10px; padding:12px 20px; border:1px solid var(--accent);
+    background:var(--accent); color:#F7FBF9; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  .btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px -12px rgba(14,110,86,.55); }
+  .btn.ghost{ background:var(--accent-soft); border-color:var(--accent-soft); color:var(--accent-ink); }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn{ color:#08211A; } }
+  :root[data-theme="dark"] .btn{ color:#08211A; }
+  .btn.ghost{ color:var(--accent-ink) !important; }
+
+  header.site{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
+    background:color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+  }
+  .site-bar{ display:flex; align-items:center; gap:20px; padding-block:14px; }
+  .wordmark{ display:flex; align-items:center; gap:10px; text-decoration:none; margin-right:auto; }
+  .wordmark .name{ font-family:"Roboto Slab",Rockwell,Georgia,serif; font-weight:800; font-size:1.18rem; color:var(--ink); }
+  .flag{ flex:0 0 auto; border-radius:2px; box-shadow:0 0 0 1px rgba(0,0,0,.16); }
+
+  /* ---------- legal article ---------- */
+  main.legal{ padding-block:48px 64px; }
+  .legal-head{ max-width:70ch; margin-bottom:38px; }
+  .legal-head .label{ margin-bottom:12px; display:block; }
+  .legal-head h1{ font-size:clamp(1.7rem,3.6vw,2.4rem); margin:0 0 10px; line-height:1.15; }
+  .legal-head .updated{ font-size:.8rem; color:var(--ink-soft); }
+  .legal-body{ max-width:70ch; }
+  .legal-body h2{ font-size:1.15rem; margin:34px 0 12px; }
+  .legal-body h2:first-child{ margin-top:0; }
+  .legal-body p{ font-size:.95rem; color:var(--ink-soft); line-height:1.7; margin:0 0 14px; }
+  .legal-body ul{ margin:0 0 14px; padding-left:22px; }
+  .legal-body li{ font-size:.95rem; color:var(--ink-soft); line-height:1.7; margin-bottom:6px; }
+  .legal-body strong{ color:var(--ink); }
+  .legal-nav{ display:flex; flex-wrap:wrap; gap:10px; margin-top:44px; padding-top:26px; border-top:1px solid var(--line); }
+  .legal-nav a{
+    text-decoration:none; font-size:.82rem; font-weight:600; color:var(--ink-soft);
+    border:1px solid var(--line); border-radius:999px; padding:7px 14px;
+  }
+  .legal-nav a.on{ background:var(--accent-soft); color:var(--accent-ink); border-color:var(--accent-soft); }
+  .legal-nav a:hover{ color:var(--ink); }
+
+  footer.site{ border-top:1px solid var(--line); padding-block:48px 30px; }
+  .footer-grid{ display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr; gap:32px 24px; margin-bottom:34px; }
+  @media (max-width:760px){ .footer-grid{ grid-template-columns:1fr 1fr; } }
+  @media (max-width:460px){ .footer-grid{ grid-template-columns:1fr; } }
+  .footer-brand p{ font-size:.85rem; color:var(--ink-soft); max-width:34ch; margin:14px 0 0; line-height:1.55; }
+  .footer-col{ display:flex; flex-direction:column; gap:10px; }
+  .footer-col .label{ margin-bottom:2px; }
+  .footer-col a{ text-decoration:none; font-size:.85rem; color:var(--ink-soft); }
+  .footer-col a:hover{ color:var(--ink); }
+  .footer-note{ font-size:.78rem; color:var(--ink-soft); max-width:74ch; line-height:1.55; border-top:1px solid var(--line); padding-top:22px; }
+  .footer-bottom{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:16px; font-size:.76rem; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap site-bar">
+    <a class="wordmark" href="/">
+      <svg class="flag" width="22" height="15" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#fff"/><rect width="30" height="6.4" fill="#D52B1E"/><rect y="13.6" width="30" height="6.4" fill="#0038A8"/><circle cx="15" cy="10" r="3.1" fill="#fff" stroke="#0038A8" stroke-width=".6"/><circle cx="15" cy="10" r="1.1" fill="#FCD116"/></svg>
+      <span class="name">SimuResi</span>
+    </a>
+    <a class="btn ghost" href="/" style="padding:9px 14px;">&larr; Volver al inicio</a>
+  </div>
+</header>
+
+<main class="legal">
+  <div class="wrap">
+    <div class="legal-head">
+      <span class="label">Legal</span>
+      <h1 class="display">Reglas de uso</h1>
+      <p class="updated mono">Última actualización: 22 de septiembre de 2026</p>
+    </div>
+    <div class="legal-body">
+      <h2>1. Aceptación de estas reglas</h2>
+<p>Al crear una cuenta o utilizar SimuResi (el "Servicio"), aceptás estas reglas de uso en su totalidad. Si no estás de acuerdo con alguna parte, no debés utilizar el Servicio.</p>
+
+<h2>2. Qué es SimuResi</h2>
+<p>SimuResi es una plataforma educativa de práctica para la preparación del examen de residencias médicas en Paraguay. Ofrece simulacros cronometrados, un banco de preguntas de práctica con explicaciones, tarjetas de repaso con repetición espaciada, y un sistema de progreso y clasificación entre usuarios. El contenido tiene fines exclusivamente educativos y de entrenamiento: no reemplaza la bibliografía oficial ni la información publicada por la Comisión Nacional de Residencias Médicas (CONAREM) sobre convocatorias, fechas o programas vigentes.</p>
+
+<h2>3. Cuenta de usuario</h2>
+<ul>
+  <li>Debés registrarte con información veraz (nombre y correo electrónico propios).</li>
+  <li>Sos responsable de mantener la confidencialidad de tu contraseña y de toda actividad realizada desde tu cuenta.</li>
+  <li>Cada cuenta es de uso personal e intransferible; no está permitido compartir credenciales de acceso con terceros.</li>
+  <li>Debés notificarnos ante cualquier uso no autorizado de tu cuenta del que tengas conocimiento.</li>
+</ul>
+
+<h2>4. Uso aceptable</h2>
+<p>Al usar el Servicio, te comprometés a no:</p>
+<ul>
+  <li>Extraer, copiar o redistribuir de forma masiva el banco de preguntas, sus explicaciones, los artículos del Boletín, o cualquier otro contenido del sitio, mediante scraping, automatización u otro medio técnico.</li>
+  <li>Revender, sublicenciar o poner a disposición de terceros el acceso a tu cuenta o al contenido del Servicio.</li>
+  <li>Interferir con el funcionamiento normal de la plataforma (intentos de intrusión, sobrecarga deliberada, elusión de límites técnicos).</li>
+  <li>Utilizar el Servicio con fines ilícitos o contrarios a la buena fe.</li>
+</ul>
+
+<h2>5. Suscripciones y período de prueba</h2>
+<p>El Servicio ofrece un período de prueba gratuito al crear la cuenta, seguido de planes de suscripción prepagos (mensual, trimestral o semestral). El detalle de precios y duración vigente se muestra al momento de contratar. Al finalizar el período contratado sin renovación, el acceso a nuevos ejercicios y al guardado de progreso se suspende; el historial ya generado permanece disponible para su consulta.</p>
+
+<h2>6. Suspensión y cancelación</h2>
+<p>Podemos suspender o cancelar una cuenta que incumpla estas reglas de uso, sin perjuicio de otras acciones que correspondan. Podés cancelar tu cuenta en cualquier momento contactándonos.</p>
+
+<h2>7. Modificaciones</h2>
+<p>Estas reglas pueden actualizarse para reflejar cambios en el Servicio o en la normativa aplicable. Publicaremos la versión vigente en esta misma página, con la fecha de última actualización.</p>
+
+<h2>8. Ley aplicable</h2>
+<p>Estas reglas se rigen por las leyes de la República del Paraguay. Cualquier controversia derivada de su interpretación o cumplimiento se someterá a los tribunales competentes de Paraguay.</p>
+    </div>
+    <nav class="legal-nav">
+    <a class="on" href="/terminos">Reglas de uso</a>
+    <a class="" href="/propiedad-intelectual">Propiedad intelectual</a>
+    <a class="" href="/responsabilidad">Limitación de responsabilidad</a>
+    <a class="" href="/privacidad">Política de privacidad</a>
+    </nav>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="wordmark" href="/">
+          <svg class="flag" width="20" height="14" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#fff"/><rect width="30" height="6.4" fill="#D52B1E"/><rect y="13.6" width="30" height="6.4" fill="#0038A8"/><circle cx="15" cy="10" r="3.1" fill="#fff" stroke="#0038A8" stroke-width=".6"/><circle cx="15" cy="10" r="1.1" fill="#FCD116"/></svg>
+          <span class="name">SimuResi</span>
+        </a>
+        <p>Simulador de examen para residencia médica en Paraguay, con las mismas condiciones de la prueba real.</p>
+      </div>
+      <div class="footer-col">
+        <span class="label">Producto</span>
+        <a href="/#producto">Cómo funciona</a>
+        <a href="/#planes">Planes</a>
+        <a href="/login">Iniciar sesión</a>
+      </div>
+      <div class="footer-col">
+        <span class="label">Boletín</span>
+        <a href="/#boletin">Guía del examen</a>
+        <a href="/#boletin">Actualización clínica</a>
+        <a href="/#boletin">Convocatorias</a>
+      </div>
+      <div class="footer-col">
+        <span class="label">Legal</span>
+        <a href="/terminos">Reglas de uso</a>
+        <a href="/propiedad-intelectual">Propiedad intelectual</a>
+        <a href="/responsabilidad">Limitación de responsabilidad</a>
+        <a href="/privacidad">Política de privacidad</a>
+      </div>
+    </div>
+    <p class="footer-note">Preguntas de práctica basadas en exámenes reales de CONAREM. Uso educativo para entrenamiento de residente, Paraguay.</p>
+    <div class="footer-bottom">
+      <span>© 2026 SimuResi</span>
+      <span class="mono">Asunción, Paraguay</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

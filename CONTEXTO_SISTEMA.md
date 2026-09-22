@@ -110,6 +110,16 @@ Nenhuma fonte trazia `exp/wrong` por alternativa errada → foram **autorados** 
 - Valores salvos na tabela `Setting` (linha `payments`, JSON) **sobrescrevem** as variáveis de ambiente (que viram fallback). A chave privada é guardada criptografada (AES-256-GCM, chave derivada de `SESSION_SECRET` — **trocar o SESSION_SECRET invalida a chave privada salva**, seria preciso salvá-la de novo) e nunca é devolvida pela API. Serviço: `src/services/settings.js` (cache em memória, invalidado ao salvar).
 - API: `GET/PUT /api/admin/settings`. Migração `20260920020000_settings`.
 
+## 9e. Domínio próprio simuresi.com.py — comprado, aguardando propagação (2026-09-22)
+- Domínio comprado pelo usuário. **ATENÇÃO:** ele foi configurado inicialmente apontando para `45.178.50.49` (servidor do provedor/registrador, NÃO é o nosso VPS) — o usuário disse que sabe corrigir o DNS sozinho e vai apontar para `185.137.92.141` (nosso VPS). Confirmar isso antes de qualquer passo abaixo.
+- **Quando o usuário avisar que propagou**, fazer:
+  1. Confirmar propagação: `nslookup simuresi.com.py 8.8.8.8` deve responder `185.137.92.141`.
+  2. No `docker-compose.yml` do VPS, trocar/adicionar o label do Traefik: `traefik.http.routers.conarem.rule=Host(`simuresi.com.py`)` (ou usar dois routers para aceitar os dois domínios durante a transição, com o antigo calendar.guiafinanceiro.pro redirecionando).
+  3. Traefik emite certificado Let's Encrypt automaticamente (certresolver `letsencrypt`) assim que o router novo subir — checar `docker logs traefik-traefik-1`.
+  4. No painel `/admin` → Configurações, atualizar as URLs mostradas (webhook e redirecionamento) para o domínio novo, e colar essas mesmas URLs no painel do Pagopar.
+  5. Testar login/app/admin no domínio novo; manter o domínio antigo funcionando (redirect) por um tempo, não desligar de golpe.
+  6. Repositório GitHub: `https://github.com/claytonmaiasouza/simuresi.git` (push feito manualmente pelo usuário — a trava de segurança do Claude Code bloqueia `git push` mesmo com confirmação na conversa; precisa de permissão nas settings ou o usuário rodar o comando).
+
 ## 10. Outras observações
 - Conectores MCP (Gmail, Drive, Supabase etc.) exigem autorização manual pelo usuário; não usados neste projeto.
 - Leituras em produção via SSH podem ser bloqueadas pelo classificador de permissões do Claude Code — o usuário precisa aprovar cada comando.

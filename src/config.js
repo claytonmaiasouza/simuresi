@@ -23,6 +23,13 @@ function loadConfig() {
     databaseUrl: process.env.DATABASE_URL,
     sessionSecret: process.env.SESSION_SECRET,
     trialDays: parseInt(process.env.TRIAL_DAYS || "14", 10),
+    // Hosts that get the marketing/portal landing page at "/" instead of the
+    // bare login form. Legacy domains not in this list keep the old behavior
+    // untouched, so existing bookmarks/users are never disrupted by the switch.
+    landingHosts: (process.env.LANDING_HOSTS || "simuresi.com.py,www.simuresi.com.py")
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean),
     paymentUrl: process.env.PAYMENT_URL || "",
     paymentWhatsapp: (process.env.PAYMENT_WHATSAPP || "").replace(/[^0-9]/g, ""),
     paymentInstructions: process.env.PAYMENT_INSTRUCTIONS || "",

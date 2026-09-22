@@ -75,7 +75,20 @@ app.get("/", (req, res) => {
   if (req.session && req.session.userId) {
     return res.redirect("/app");
   }
+  const isLandingHost = config.landingHosts.includes(String(req.hostname || "").toLowerCase());
+  res.sendFile(path.join(frontendDir, isLandingHost ? "landing.html" : "index.html"));
+});
+
+app.get("/login", (req, res) => {
+  if (req.session && req.session.userId) {
+    return res.redirect("/app");
+  }
   res.sendFile(path.join(frontendDir, "index.html"));
+});
+
+// Public legal pages (no auth gate -- linked from the landing footer).
+["terminos", "propiedad-intelectual", "responsabilidad", "privacidad"].forEach((slug) => {
+  app.get(`/${slug}`, (req, res) => res.sendFile(path.join(frontendDir, `${slug}.html`)));
 });
 
 app.get("/admin", async (req, res) => {
