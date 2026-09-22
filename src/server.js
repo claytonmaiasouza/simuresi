@@ -55,6 +55,16 @@ app.use(
 );
 
 const { gamifyRouter, leagueRouter } = require("./routes/gamify");
+const { getQuestionStats } = require("./services/questionStats");
+
+// Public: powers the "N preguntas" counters on the landing page. Computed
+// once at server start from the real question bank (frontend/app.html), not
+// hardcoded -- see src/services/questionStats.js.
+app.get("/api/stats/questions", (req, res) => {
+  const stats = getQuestionStats();
+  if (!stats) return res.status(503).json({ error: "stats_unavailable" });
+  res.json(stats);
+});
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/history", require("./routes/history"));
