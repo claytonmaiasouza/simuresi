@@ -56,6 +56,12 @@
   :root[data-theme="dark"] .btn{ color:#08211A; }
   .btn.ghost{ color:var(--accent-ink) !important; }
   .btn.subtle{ background:transparent; border-color:var(--line); color:var(--ink); }
+  /* The dark-mode override above (".btn{color:#08211A}") is meant for the
+     solid green primary button, but its selector out-specifies ".btn.subtle"
+     above, so it was winning here too -- an outline button with a near-black
+     text color on a transparent (dark) background is effectively invisible.
+     Same fix already applied to .btn.ghost on the line above. */
+  .btn.subtle{ color:var(--ink) !important; }
 
   /* ---------- header ---------- */
   header.site{
