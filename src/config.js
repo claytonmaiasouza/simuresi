@@ -43,6 +43,21 @@ function loadConfig() {
       cityId: process.env.PAGOPAR_CITY_ID || "1",
       paymentDeadlineHours: parseInt(process.env.PAGOPAR_DEADLINE_HOURS || "48", 10),
     },
+    // Outbound mail (password reset, notifications) + the contact addresses
+    // shown to users. All optional and re-configurable from the admin
+    // dashboard (src/services/emailSettings.js) without touching .env --
+    // these are only the fallback defaults when nothing is saved there yet.
+    email: {
+      smtpHost: process.env.SMTP_HOST || "",
+      smtpPort: parseInt(process.env.SMTP_PORT || "587", 10),
+      smtpSecure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
+      smtpUser: process.env.SMTP_USER || "",
+      smtpPass: process.env.SMTP_PASS || "",
+      fromName: process.env.MAIL_FROM_NAME || "SimuResi",
+      fromAddress: process.env.MAIL_FROM_ADDRESS || "",
+      supportEmail: process.env.SUPPORT_EMAIL || "",
+      paymentsEmail: process.env.PAYMENTS_EMAIL || "",
+    },
   };
 }
 

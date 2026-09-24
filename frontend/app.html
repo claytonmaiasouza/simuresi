@@ -4699,9 +4699,16 @@ function openPaymentModal(note){
   var body = (note ? '<p><strong>'+escHtml(note)+'</strong></p>' : '') + '<p>'+intro+'</p>' +
     '<div id="planList" style="display:grid;gap:10px;margin:0 0 14px;"><div class="exp-box">Cargando planes…</div></div>' +
     '<div id="payMsg" class="exp-box" style="margin:0 0 14px;display:none;"></div>';
+  var contact = u.contact || {};
   var manual = '';
   if(p.instructions){
     manual += '<div class="exp-box" style="margin:0 0 12px;white-space:pre-line;">'+escHtml(p.instructions)+'</div>';
+  }
+  if(contact.paymentsEmail || contact.supportEmail){
+    manual += '<p style="font-size:.85rem;color:var(--ink-soft);margin:0 0 12px;">'+
+      (contact.paymentsEmail ? '¿Ya pagaste? Envianos el comprobante a <a href="mailto:'+escHtml(contact.paymentsEmail)+'">'+escHtml(contact.paymentsEmail)+'</a>. ' : '')+
+      (contact.supportEmail ? 'Dudas u otros temas: <a href="mailto:'+escHtml(contact.supportEmail)+'">'+escHtml(contact.supportEmail)+'</a>.' : '')+
+      '</p>';
   }
   var actions = '';
   if(p.url){

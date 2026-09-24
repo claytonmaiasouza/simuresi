@@ -56,6 +56,7 @@ app.use(
 
 const { gamifyRouter, leagueRouter } = require("./routes/gamify");
 const { getQuestionStats } = require("./services/questionStats");
+const emailSettings = require("./services/emailSettings");
 
 // Public: powers the "N preguntas" counters on the landing page. Computed
 // once at server start from the real question bank (frontend/app.html), not
@@ -64,6 +65,17 @@ app.get("/api/stats/questions", (req, res) => {
   const stats = getQuestionStats();
   if (!stats) return res.status(503).json({ error: "stats_unavailable" });
   res.json(stats);
+});
+
+// Public: the contact addresses shown on the landing page footer, editable
+// from the admin dashboard (Configurações) without a redeploy.
+app.get("/api/contact", async (req, res, next) => {
+  try {
+    const e = await emailSettings.get();
+    res.json({ supportEmail: e.supportEmail, paymentsEmail: e.paymentsEmail });
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.use("/api/auth", require("./routes/auth"));

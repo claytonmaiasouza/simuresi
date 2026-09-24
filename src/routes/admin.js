@@ -276,10 +276,22 @@ router.post("/users/:id/gamify", validateParams(idParamSchema), validateBody(gam
 });
 
 const settings = require("../services/settings");
+const emailSettings = require("../services/emailSettings");
 const pagopar = require("../services/billing/PagoparClient");
 
-async function settingsView() {
+// Kept as a function (not a hardcoded constant) so it always reflects
+// whatever host this request actually came in on, instead of a domain
+// that's one DNS/Traefik change away from going stale again -- exactly
+// what happened to the previous hardcoded calendar.guiafinanceiro.pro
+// version of these two URLs.
+function publicOrigin(req) {
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+async function settingsView(req) {
   const s = await settings.get();
+  const e = await emailSettings.get();
+  const origin = publicOrigin(req);
   return {
     prices: s.prices,
     publicKey: s.pagopar.publicKey || "",
@@ -289,14 +301,26 @@ async function settingsView() {
     url: s.url,
     instructions: s.instructions,
     enabled: await pagopar.isConfigured(),
-    webhookUrl: "https://calendar.guiafinanceiro.pro/api/billing/webhook",
-    returnUrl: "https://calendar.guiafinanceiro.pro/app?pago=1",
+    webhookUrl: `${origin}/api/billing/webhook`,
+    returnUrl: `${origin}/app?pago=1`,
+    email: {
+      smtpHost: e.smtpHost,
+      smtpPort: e.smtpPort,
+      smtpSecure: e.smtpSecure,
+      smtpUser: e.smtpUser,
+      smtpPassSet: !!e.smtpPass,
+      smtpPassSource: e.smtpPassSource,
+      fromName: e.fromName,
+      fromAddress: e.fromAddress,
+      supportEmail: e.supportEmail,
+      paymentsEmail: e.paymentsEmail,
+    },
   };
 }
 
 router.get("/settings", async (req, res, next) => {
   try {
-    res.json(await settingsView());
+    res.json(await settingsView(req));
   } catch (err) {
     next(err);
   }
@@ -310,12 +334,27 @@ const settingsSchema = z.object({
   whatsapp: z.string().trim().max(30).optional(),
   url: z.string().trim().max(500).refine((v) => v === "" || /^https?:\/\//i.test(v), "url must start with http(s)://").optional(),
   instructions: z.string().trim().max(1000).optional(),
+  email: z
+    .object({
+      smtpHost: z.string().trim().max(200).optional(),
+      smtpPort: z.number().int().min(1).max(65535).optional(),
+      smtpSecure: z.boolean().optional(),
+      smtpUser: z.string().trim().max(200).optional(),
+      smtpPass: z.string().max(200).optional(),
+      fromName: z.string().trim().max(80).optional(),
+      fromAddress: z.string().trim().max(200).optional(),
+      supportEmail: z.string().trim().max(200).optional(),
+      paymentsEmail: z.string().trim().max(200).optional(),
+    })
+    .optional(),
 });
 
 router.put("/settings", validateBody(settingsSchema), async (req, res, next) => {
   try {
-    await settings.update(req.body);
-    res.json(await settingsView());
+    const { email, ...paymentFields } = req.body;
+    await settings.update(paymentFields);
+    if (email) await emailSettings.update(email);
+    res.json(await settingsView(req));
   } catch (err) {
     next(err);
   }

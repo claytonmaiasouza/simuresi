@@ -1,32 +1,16 @@
-const crypto = require("crypto");
 const prisma = require("../db");
 const config = require("../config");
+const secretCrypto = require("./secretCrypto");
 
 // Payment settings managed from the admin dashboard. Values saved in the DB
 // override the env defaults. The Pagopar private key is stored encrypted
 // (AES-256-GCM, key derived from SESSION_SECRET) and never sent to clients.
 const ROW = "payments";
-const KEY = crypto.createHash("sha256").update("settings:" + config.sessionSecret).digest();
+// NB: namespace must stay "settings" forever -- see secretCrypto.js.
+const encrypt = (text) => secretCrypto.encrypt("settings", text);
+const decrypt = (b64) => secretCrypto.decrypt("settings", b64);
 
 let cache = null;
-
-function encrypt(text) {
-  const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv("aes-256-gcm", KEY, iv);
-  const ct = Buffer.concat([c.update(text, "utf8"), c.final()]);
-  return Buffer.concat([iv, c.getAuthTag(), ct]).toString("base64");
-}
-
-function decrypt(b64) {
-  try {
-    const buf = Buffer.from(b64, "base64");
-    const d = crypto.createDecipheriv("aes-256-gcm", KEY, buf.subarray(0, 12));
-    d.setAuthTag(buf.subarray(12, 28));
-    return Buffer.concat([d.update(buf.subarray(28)), d.final()]).toString("utf8");
-  } catch (e) {
-    return "";
-  }
-}
 
 async function readRaw() {
   const row = await prisma.setting.findUnique({ where: { key: ROW } });

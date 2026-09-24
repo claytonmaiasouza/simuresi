@@ -60,6 +60,10 @@
   }
   .btn:disabled{opacity:.6;cursor:not-allowed;}
 
+  .forgot-link{ text-align:right; margin:-6px 0 14px; }
+  .forgot-link a{ color:var(--ink-soft); font-size:.8rem; cursor:pointer; text-decoration:none; }
+  .forgot-link a:hover{ text-decoration:underline; color:var(--accent-ink); }
+
   .switch{margin-top:18px;text-align:center;font-size:.86rem;color:var(--ink-soft);}
   .switch a{color:var(--accent-ink);font-weight:600;cursor:pointer;text-decoration:none;}
   .switch a:hover{text-decoration:underline;}
@@ -69,6 +73,11 @@
     border:1px solid var(--critical); color:var(--ink); font-size:.85rem; display:none;
   }
   .error-box.show{display:block;}
+  .success-box{
+    margin:0 0 16px; padding:10px 12px; border-radius:8px; background:var(--accent-soft);
+    border:1px solid var(--accent); color:var(--accent-ink); font-size:.85rem; display:none;
+  }
+  .success-box.show{display:block;}
 </style>
 </head>
 <body>
@@ -79,20 +88,26 @@
     <p class="sub" id="formSub">Entrá a tu cuenta para seguir tu progreso.</p>
 
     <div class="error-box" id="errorBox"></div>
+    <div class="success-box" id="successBox"></div>
 
     <form id="authForm">
       <div class="field" id="nameField" hidden>
         <label for="name">Nombre</label>
         <input type="text" id="name" autocomplete="name" maxlength="80">
       </div>
-      <div class="field">
+      <div class="field" id="emailField">
         <label for="email">Email</label>
-        <input type="email" id="email" autocomplete="email" required maxlength="254">
+        <input type="email" id="email" autocomplete="email" maxlength="254">
       </div>
-      <div class="field">
-        <label for="password">Contraseña</label>
-        <input type="password" id="password" autocomplete="current-password" required minlength="8" maxlength="72">
+      <div class="field" id="passwordField">
+        <label for="password" id="passwordLabel">Contraseña</label>
+        <input type="password" id="password" autocomplete="current-password" minlength="8" maxlength="72">
       </div>
+      <div class="field" id="password2Field" hidden>
+        <label for="password2">Confirmar contraseña</label>
+        <input type="password" id="password2" autocomplete="new-password" minlength="8" maxlength="72">
+      </div>
+      <div class="forgot-link" id="forgotLink"><a id="forgotLinkA">¿Olvidaste tu contraseña?</a></div>
       <button class="btn" type="submit" id="submitBtn">Iniciar sesión</button>
     </form>
 
@@ -103,32 +118,87 @@
 
 <script>
 (function(){
-  var mode = "login"; // "login" | "signup"
+  var mode = "login"; // "login" | "signup" | "forgot" | "reset"
+  var resetToken = null;
   var form = document.getElementById("authForm");
   var nameField = document.getElementById("nameField");
   var nameInput = document.getElementById("name");
+  var emailField = document.getElementById("emailField");
+  var emailInput = document.getElementById("email");
+  var passwordField = document.getElementById("passwordField");
+  var passwordLabel = document.getElementById("passwordLabel");
   var passwordInput = document.getElementById("password");
+  var password2Field = document.getElementById("password2Field");
+  var password2Input = document.getElementById("password2");
+  var forgotLink = document.getElementById("forgotLink");
   var submitBtn = document.getElementById("submitBtn");
   var errorBox = document.getElementById("errorBox");
+  var successBox = document.getElementById("successBox");
   var formTitle = document.getElementById("formTitle");
   var formSub = document.getElementById("formSub");
   var switchLine = document.getElementById("switchLine");
 
+  function hideMessages(){
+    errorBox.classList.remove("show");
+    successBox.classList.remove("show");
+  }
+  function showError(msg){
+    hideMessages();
+    errorBox.textContent = msg;
+    errorBox.classList.add("show");
+  }
+  function showSuccess(msg){
+    hideMessages();
+    successBox.textContent = msg;
+    successBox.classList.add("show");
+  }
+
   function setMode(next){
     mode = next;
-    errorBox.classList.remove("show");
+    hideMessages();
+    nameField.hidden = true;
+    emailField.hidden = false;
+    passwordField.hidden = false;
+    password2Field.hidden = true;
+    forgotLink.hidden = false;
+    passwordInput.value = "";
+    password2Input.value = "";
+    passwordInput.required = true;
+    emailInput.required = true;
+
     if(mode==="signup"){
       formTitle.textContent = "Crear cuenta";
       formSub.textContent = "Registrate para empezar a estudiar y guardar tu progreso.";
       nameField.hidden = false;
       passwordInput.setAttribute("autocomplete","new-password");
+      passwordLabel.textContent = "Contraseña";
+      forgotLink.hidden = true;
       submitBtn.textContent = "Crear cuenta";
       switchLine.innerHTML = '¿Ya tenés cuenta? <a id="switchLink">Iniciá sesión</a>';
+    } else if(mode==="forgot"){
+      formTitle.textContent = "Recuperar contraseña";
+      formSub.textContent = "Escribí tu email y te mandamos un enlace para crear una contraseña nueva.";
+      passwordField.hidden = true;
+      passwordInput.required = false;
+      forgotLink.hidden = true;
+      submitBtn.textContent = "Enviar enlace";
+      switchLine.innerHTML = '<a id="switchLink">Volver a iniciar sesión</a>';
+    } else if(mode==="reset"){
+      formTitle.textContent = "Crear nueva contraseña";
+      formSub.textContent = "Elegí una contraseña nueva para tu cuenta.";
+      emailField.hidden = true;
+      emailInput.required = false;
+      password2Field.hidden = false;
+      passwordInput.setAttribute("autocomplete","new-password");
+      passwordLabel.textContent = "Contraseña nueva";
+      forgotLink.hidden = true;
+      submitBtn.textContent = "Guardar contraseña";
+      switchLine.innerHTML = '<a id="switchLink">Volver a iniciar sesión</a>';
     } else {
       formTitle.textContent = "Iniciar sesión";
       formSub.textContent = "Entrá a tu cuenta para seguir tu progreso.";
-      nameField.hidden = true;
       passwordInput.setAttribute("autocomplete","current-password");
+      passwordLabel.textContent = "Contraseña";
       submitBtn.textContent = "Iniciar sesión";
       switchLine.innerHTML = '¿No tenés cuenta? <a id="switchLink">Creá una</a>';
     }
@@ -137,52 +207,97 @@
   // <a>, so one listener here survives every setMode() re-render.
   switchLine.addEventListener("click", function(e){
     if(e.target && e.target.id==="switchLink"){
-      setMode(mode==="login"?"signup":"login");
+      // From "reset" or "forgot", the natural way back is always "login".
+      setMode(mode==="login" ? "signup" : "login");
+      history.replaceState(null, "", "/login");
     }
   });
-
-  function showError(msg){
-    errorBox.textContent = msg;
-    errorBox.classList.add("show");
-  }
+  forgotLink.addEventListener("click", function(e){
+    if(e.target && e.target.id==="forgotLinkA"){
+      setMode("forgot");
+    }
+  });
 
   var ERROR_MESSAGES = {
     invalid_credentials: "Email o contraseña incorrectos.",
     email_in_use: "Ese email ya está registrado. Iniciá sesión en su lugar.",
     invalid_input: "Revisá los datos ingresados.",
     too_many_requests: "Demasiados intentos. Esperá unos minutos e intentá de nuevo.",
+    invalid_or_expired_token: "Este enlace ya no es válido. Pedí uno nuevo.",
   };
 
   form.addEventListener("submit", async function(e){
     e.preventDefault();
-    errorBox.classList.remove("show");
+    hideMessages();
+
+    if(mode==="reset" && passwordInput.value !== password2Input.value){
+      showError("Las contraseñas no coinciden.");
+      return;
+    }
+
     submitBtn.disabled = true;
-
-    var email = document.getElementById("email").value.trim();
-    var password = passwordInput.value;
-    var name = nameInput.value.trim();
-
-    var url = mode==="login" ? "/api/auth/login" : "/api/auth/signup";
-    var body = mode==="login" ? {email:email,password:password} : {email:email,password:password,name:name||undefined};
-
     try{
-      var res = await fetch(url, {
+      if(mode==="forgot"){
+        var email = emailInput.value.trim();
+        await fetch("/api/auth/forgot-password", {
+          method:"POST", credentials:"include", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({email:email})
+        });
+        // Always shown, whether or not that email is actually registered.
+        showSuccess("Si ese email tiene una cuenta, te mandamos un enlace para recuperar tu contraseña. Revisá tu bandeja de entrada (y spam).");
+        return;
+      }
+
+      if(mode==="reset"){
+        var res = await fetch("/api/auth/reset-password", {
+          method:"POST", credentials:"include", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({token:resetToken, password:passwordInput.value})
+        });
+        if(res.ok){
+          history.replaceState(null, "", "/login");
+          setMode("login");
+          showSuccess("Contraseña actualizada. Ya podés iniciar sesión.");
+          return;
+        }
+        var data = await res.json().catch(function(){ return {}; });
+        showError(ERROR_MESSAGES[data.error] || "No se pudo actualizar la contraseña. Pedí un enlace nuevo.");
+        return;
+      }
+
+      // login / signup
+      var pwd = passwordInput.value;
+      var name = nameInput.value.trim();
+      var url = mode==="login" ? "/api/auth/login" : "/api/auth/signup";
+      var body = mode==="login" ? {email:emailInput.value.trim(),password:pwd} : {email:emailInput.value.trim(),password:pwd,name:name||undefined};
+
+      var res2 = await fetch(url, {
         method:"POST", credentials:"include",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify(body)
       });
-      if(res.ok){
+      if(res2.ok){
         window.location.href = "/app";
         return;
       }
-      var data = await res.json().catch(function(){ return {}; });
-      showError(ERROR_MESSAGES[data.error] || "Ocurrió un error. Intentá de nuevo.");
+      var data2 = await res2.json().catch(function(){ return {}; });
+      showError(ERROR_MESSAGES[data2.error] || "Ocurrió un error. Intentá de nuevo.");
     }catch(err){
       showError("No se pudo conectar. Revisá tu conexión e intentá de nuevo.");
     }finally{
       submitBtn.disabled = false;
     }
   });
+
+  // "/login?reset=<token>" -- the link we email out -- opens straight into
+  // the "set new password" form instead of the login form.
+  var params = new URLSearchParams(window.location.search);
+  var tokenFromUrl = params.get("reset");
+  if(tokenFromUrl){
+    resetToken = tokenFromUrl;
+    setMode("reset");
+  } else {
+    setMode("login");
+  }
 })();
 </script>
 </body>

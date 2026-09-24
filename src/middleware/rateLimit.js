@@ -34,4 +34,17 @@ const historyWriteLimiter = rateLimit({
   keyGenerator: (req) => (req.session && req.session.userId) || req.ip,
 });
 
-module.exports = { authLimiter, loginByEmailLimiter, historyWriteLimiter };
+// Password-reset requests: cheap to trigger (just an email address) and each
+// one sends a real email, so this gets its own, stricter limiter keyed by
+// the submitted email -- on top of the generic authLimiter already applied
+// to the same route for a per-IP ceiling.
+const forgotPasswordByEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_requests" },
+  keyGenerator: (req) => String((req.body && req.body.email) || "").toLowerCase().trim(),
+});
+
+module.exports = { authLimiter, loginByEmailLimiter, historyWriteLimiter, forgotPasswordByEmailLimiter };

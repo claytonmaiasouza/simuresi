@@ -1,11 +1,15 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { z } = require("zod");
 const prisma = require("../db");
 const config = require("../config");
 const settings = require("../services/settings");
+const emailSettings = require("../services/emailSettings");
+const mailer = require("../services/mailer");
+const { passwordResetEmail } = require("../services/emailTemplates");
 const { validateBody } = require("../middleware/validate");
-const { authLimiter, loginByEmailLimiter } = require("../middleware/rateLimit");
+const { authLimiter, loginByEmailLimiter, forgotPasswordByEmailLimiter } = require("../middleware/rateLimit");
 const { requireAuth } = require("../middleware/requireAuth");
 
 const router = express.Router();
@@ -32,6 +36,25 @@ const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(72),
 });
+
+const forgotPasswordSchema = z.object({ email: emailSchema });
+
+const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1).max(128),
+  password: passwordSchema,
+});
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h
+
+function hashToken(raw) {
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+/** req.protocol reflects the original https since "trust proxy" is set and
+ * Traefik forwards X-Forwarded-Proto -- see server.js. */
+function publicOrigin(req) {
+  return `${req.protocol}://${req.get("host")}`;
+}
 
 function publicUser(user) {
   return {
@@ -112,6 +135,66 @@ router.post("/login", authLimiter, loginByEmailLimiter, validateBody(loginSchema
   }
 });
 
+// Always responds the same way whether or not the email is registered, so
+// this can never be used to enumerate accounts. The actual email (if any)
+// is sent best-effort in the background -- a slow/broken SMTP server should
+// never make this request hang or fail from the client's point of view.
+router.post(
+  "/forgot-password",
+  authLimiter,
+  forgotPasswordByEmailLimiter,
+  validateBody(forgotPasswordSchema),
+  async (req, res, next) => {
+    try {
+      const { email } = req.body;
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (user) {
+        const raw = crypto.randomBytes(32).toString("hex");
+        const tokenHash = hashToken(raw);
+        const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+        await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+
+        const resetUrl = `${publicOrigin(req)}/login?reset=${raw}`;
+        const { subject, html, text } = passwordResetEmail({ name: user.name, resetUrl });
+        mailer.sendMail({ to: user.email, subject, html, text }).catch((e) => {
+          console.error("forgot-password: failed to send email to", user.email, e.message);
+        });
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.post("/reset-password", authLimiter, validateBody(resetPasswordSchema), async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const tokenHash = hashToken(token);
+    const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      return res.status(400).json({ error: "invalid_or_expired_token" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+      prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+      // Invalidate any other still-pending reset tokens for this user, so an
+      // older leaked link can't be used after a successful reset.
+      prisma.passwordResetToken.updateMany({
+        where: { userId: record.userId, usedAt: null, id: { not: record.id } },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/logout", (req, res) => {
   if (!req.session) return res.status(204).end();
   req.session.destroy(() => {
@@ -123,9 +206,11 @@ router.post("/logout", (req, res) => {
 router.get("/me", requireAuth, async (req, res, next) => {
   try {
     const s = await settings.get();
+    const e = await emailSettings.get();
     res.json({
       ...publicUser(req.user),
       payment: { url: s.url, whatsapp: s.whatsapp, instructions: s.instructions },
+      contact: { supportEmail: e.supportEmail, paymentsEmail: e.paymentsEmail },
     });
   } catch (err) {
     next(err);

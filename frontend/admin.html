@@ -155,6 +155,21 @@
       <div><label>Link de pagamento externo (opcional)</label><input type="text" id="stUrl" style="width:100%" placeholder="https://…"></div></div>
       <label style="display:block;font-size:.7rem;color:var(--ink-soft);margin-bottom:2px;">Instruções (banco, alias, valor…)</label>
       <textarea id="stIns" rows="4" style="width:100%" maxlength="1000"></textarea>
+      <div class="row" style="margin-top:10px;">
+        <div><label>Email para comprovante de pagamento</label><input type="email" id="stPayEmail" style="width:100%" placeholder="pagos@simuresi.com.py"></div>
+        <div><label>Email para dúvidas / suporte</label><input type="email" id="stSupportEmail" style="width:100%" placeholder="soporte@simuresi.com.py"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Envio de emails (SMTP) <span id="smtpBadge"></span></h2>
+      <div class="muted" style="font-size:.82rem;margin-bottom:10px;">Necessário para o app conseguir enviar o email de "recuperar senha". Peça esses dados na conta de email que você criar em simuresi.com.py (ex: no-responder@simuresi.com.py) — no painel de hospedagem, em "Cuentas de email" → "Conectar dispositivos".</div>
+      <div class="row"><div style="flex:2 1 220px;"><label>Servidor SMTP</label><input type="text" id="smHost" style="width:100%" placeholder="mail.simuresi.com.py"></div>
+      <div style="flex:1 1 100px;"><label>Porta</label><input type="number" id="smPort" style="width:100%" placeholder="587"></div>
+      <div style="flex:1 1 140px;"><label>Segurança</label><select id="smSecure" style="width:100%"><option value="0">STARTTLS (587)</option><option value="1">SSL/TLS (465)</option></select></div></div>
+      <div class="row"><div style="flex:2 1 220px;"><label>Usuário (email completo)</label><input type="text" id="smUser" style="width:100%" placeholder="no-responder@simuresi.com.py" autocomplete="off"></div>
+      <div style="flex:2 1 220px;"><label>Senha <span id="smPassState" class="muted"></span></label><input type="password" id="smPass" style="width:100%" autocomplete="new-password" placeholder="deixe vazio para manter a atual"></div></div>
+      <div class="row"><div style="flex:1 1 160px;"><label>Nome do remetente</label><input type="text" id="smFromName" style="width:100%" placeholder="SimuResi"></div>
+      <div style="flex:2 1 220px;"><label>Email do remetente (se vazio, usa o usuário acima)</label><input type="text" id="smFromAddr" style="width:100%" placeholder="no-responder@simuresi.com.py"></div></div>
     </div>
     <button class="btn" id="stSave">Salvar configurações</button>
   </section>
@@ -279,6 +294,20 @@ async function loadSettings(){
   document.getElementById("stUrl").value = c.url;
   document.getElementById("stIns").value = c.instructions;
   document.getElementById("setBadge").innerHTML = c.enabled ? '<span class="badge b-ACTIVE">Ativo</span>' : '<span class="badge b-PENDING">Incompleto</span>';
+
+  var em = c.email || {};
+  document.getElementById("stPayEmail").value = em.paymentsEmail || "";
+  document.getElementById("stSupportEmail").value = em.supportEmail || "";
+  document.getElementById("smHost").value = em.smtpHost || "";
+  document.getElementById("smPort").value = em.smtpPort || 587;
+  document.getElementById("smSecure").value = em.smtpSecure ? "1" : "0";
+  document.getElementById("smUser").value = em.smtpUser || "";
+  document.getElementById("smPass").value = "";
+  document.getElementById("smPassState").textContent = em.smtpPassSet ? "(já salva ✓)" : "(não configurada)";
+  document.getElementById("smFromName").value = em.fromName || "";
+  document.getElementById("smFromAddr").value = em.fromAddress || "";
+  document.getElementById("smtpBadge").innerHTML = em.smtpPassSet && em.smtpHost && em.smtpUser
+    ? '<span class="badge b-ACTIVE">Configurado</span>' : '<span class="badge b-PENDING">Incompleto</span>';
 }
 document.getElementById("stSave").onclick = async function(){
   var num = function(id){ return parseInt(document.getElementById(id).value,10)||0; };
@@ -287,10 +316,22 @@ document.getElementById("stSave").onclick = async function(){
     publicKey: document.getElementById("pgPub").value,
     whatsapp: document.getElementById("stWa").value,
     url: document.getElementById("stUrl").value,
-    instructions: document.getElementById("stIns").value
+    instructions: document.getElementById("stIns").value,
+    email: {
+      paymentsEmail: document.getElementById("stPayEmail").value,
+      supportEmail: document.getElementById("stSupportEmail").value,
+      smtpHost: document.getElementById("smHost").value,
+      smtpPort: num("smPort") || 587,
+      smtpSecure: document.getElementById("smSecure").value === "1",
+      smtpUser: document.getElementById("smUser").value,
+      fromName: document.getElementById("smFromName").value,
+      fromAddress: document.getElementById("smFromAddr").value
+    }
   };
   var priv = document.getElementById("pgPriv").value;
   if(priv) body.privateKey = priv;
+  var smPass = document.getElementById("smPass").value;
+  if(smPass) body.email.smtpPass = smPass;
   try{
     await api("/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     toast("Configurações salvas."); await loadSettings();

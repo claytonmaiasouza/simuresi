@@ -433,6 +433,10 @@
         <a href="/#boletin">Convocatorias</a>
       </div>
       <div class="footer-col">
+        <span class="label">Contacto</span>
+        <a id="footerContact" href="mailto:">Cargando…</a>
+      </div>
+      <div class="footer-col">
         <span class="label">Legal</span>
         <a href="/terminos">Reglas de uso</a>
         <a href="/propiedad-intelectual">Propiedad intelectual</a>
@@ -483,6 +487,19 @@
       if(el) el.textContent = formatted;
     });
   }).catch(function(){ /* keep static fallback numbers */ });
+
+  var footerContact = document.getElementById("footerContact");
+  fetch("/api/contact", {cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error("contact unavailable");
+    return r.json();
+  }).then(function(c){
+    if(footerContact && c.supportEmail){
+      footerContact.href = "mailto:" + c.supportEmail;
+      footerContact.textContent = c.supportEmail;
+    } else if(footerContact){
+      footerContact.parentNode.hidden = true;
+    }
+  }).catch(function(){ if(footerContact) footerContact.parentNode.hidden = true; });
 })();
 </script>
 
