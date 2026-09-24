@@ -76,7 +76,7 @@ ssh root@185.137.92.141 "cd /opt/conarem-app && docker compose exec app npx pris
 # pra que o Prisma Client gerado no build reflita o schema novo.
 ```
 
-Migrations existentes: `20260831180113_init`, `20260920000000_payments`, `20260920010000_payment_admin_fields`, `20260920020000_settings`.
+Migrations existentes: `20260831180113_init`, `20260920000000_payments`, `20260920010000_payment_admin_fields`, `20260920020000_settings`, `20260923000000_password_reset`.
 
 ---
 
@@ -113,6 +113,8 @@ Definidas em `/opt/conarem-app/.env` no VPS (nunca commitado — ver `.env.examp
 | `PAYMENT_URL`, `PAYMENT_WHATSAPP`, `PAYMENT_INSTRUCTIONS` | não | Fallback de contato pra pagamento manual — hoje configurável também pelo dashboard admin (`Setting` no banco, sobrepõe o `.env`) |
 | `PRICE_1M`, `PRICE_3M`, `PRICE_6M` | não | Preços dos planos em guaraníes (inteiro) |
 | `PAGOPAR_PUBLIC_KEY`, `PAGOPAR_PRIVATE_KEY`, `PAGOPAR_API_BASE`, `PAGOPAR_PAY_BASE`, `PAGOPAR_CATEGORY`, `PAGOPAR_CITY_ID`, `PAGOPAR_DEADLINE_HOURS` | não | Config Pagopar — também sobreponível via dashboard admin (private key fica criptografada no banco, nunca em texto puro) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS` | não | Envio de emails (recuperação de senha). Como a Pagopar key, tudo sobreponível via dashboard admin (senha SMTP criptografada no banco) — ver `src/services/emailSettings.js` |
+| `SUPPORT_EMAIL`, `PAYMENTS_EMAIL` | não | Endereços de contato mostrados ao usuário (dúvidas / comprovante de pagamento) — também editáveis via dashboard admin |
 
 ---
 
@@ -143,10 +145,15 @@ conarem-app/
       admin.js          — dashboard admin (users, payments, stats, settings, grant/gamify)
       billing.js          — plans, checkout, sync, webhook (Pagopar)
     services/
-      settings.js       — config de pagamento persistida no banco (criptografada)
-      xpAward.js          — cálculo de XP
-      league.js            — lógica da liga semanal
-      gamify.js             — helpers de gamificação
+      secretCrypto.js    — AES-256-GCM compartilhado (por namespace) para segredos guardados no Setting table
+      settings.js         — config de pagamento persistida no banco (Pagopar key criptografada, namespace "settings")
+      emailSettings.js      — config de SMTP + emails de contato persistida no banco (senha SMTP criptografada, namespace "email-settings")
+      mailer.js               — envio via nodemailer, lê config de emailSettings.js
+      emailTemplates.js        — templates HTML simples (hoje só o de recuperação de senha)
+      questionStats.js          — conta as questões reais do Q array (usado por /api/stats/questions)
+      xpAward.js                 — cálculo de XP
+      league.js                   — lógica da liga semanal
+      gamify.js                    — helpers de gamificação
       billing/
         BillingProvider.js   — interface
         ManualProvider.js     — ativação manual (usado pelo admin)
@@ -175,7 +182,8 @@ conarem-app/
 | `GamifyState` | 1:1 com User — `xp`, `streakCurrent`/`streakLongest`/`streakFreezes`, `tierIndex` (liga), `weekKey`/`weekXp` |
 | `LeagueWeekResult` | Histórico por `(userId, weekKey)` — resultado da liga daquela semana (`rank`, `promoted`, `demoted`) |
 | `Payment` | `orderNumber` (autoincrement), `planCode`, `months`, `amount`, `status` (PENDING/PAID/CANCELED), `pagoparHash` |
-| `Setting` | `key` (PK) + `value` (Json) — hoje só usado pra `payments` (config Pagopar/preços/contato) |
+| `PasswordResetToken` | `userId`, `tokenHash` (SHA-256 do token enviado por email, nunca o token cru), `expiresAt` (1h), `usedAt` — single-use |
+| `Setting` | `key` (PK) + `value` (Json) — duas linhas hoje: `payments` (Pagopar/preços/contato de pagamento) e `email` (SMTP + emails de contato) |
 
 > `Session` (cookies) é gerenciada pelo `connect-pg-simple`, **não** pelo Prisma — ele cria a própria tabela `session` on-the-fly.
 
@@ -215,6 +223,11 @@ GET  /terminos, /propiedad-intelectual, /responsabilidad, /privacidad  — pági
 
 POST /api/auth/signup | /login | /logout
 GET  /api/auth/me
+POST /api/auth/forgot-password    — sempre {ok:true}, nunca revela se o email existe
+POST /api/auth/reset-password     — {token, password}; token de uso único, expira em 1h
+
+GET  /api/stats/questions           — público; total real de questões (para o contador na landing)
+GET  /api/contact                    — público; supportEmail/paymentsEmail (para o rodapé da landing)
 
 GET  /api/history                — histórico de simulados do usuário
 POST /api/history                 — salva tentativa (exige plano ativo)
@@ -338,12 +351,14 @@ openssl s_client -connect 185.137.92.141:443 -servername simuresi.com.py 2>/dev/
 
 2. **As 5 áreas do CONAREM são fixas** (CIR, GO, SP, MI, PED). Qualquer questão de outra especialidade vai pro banco separado `conarem_premium`, nunca pro `Q` principal — isso já foi corrigido uma vez nesta base (EM/MF/TR tinham entrado por engano e foram removidos).
 
-3. **`SESSION_SECRET` também criptografa a Pagopar private key** salva no banco (`src/services/settings.js`). Rotacionar esse segredo sem reconfigurar a Pagopar key pelo dashboard admin quebra o pagamento silenciosamente.
+3. **`SESSION_SECRET` também criptografa a Pagopar private key E a senha SMTP** salvas no banco (`src/services/secretCrypto.js`, usado por `settings.js` e `emailSettings.js`). Rotacionar esse segredo sem reconfigurar essas duas chaves pelo dashboard admin quebra pagamento e envio de email silenciosamente.
 
 4. **`frontend/app.html` é um arquivo enorme** (~3MB, banco de questões embutido como texto). Editar com cuidado — sempre validar com um parse real do array `Q` (respeitando aspas/colchetes aninhados) antes de fazer deploy, `grep` sozinho não é confiável pra contar ou localizar questões.
 
 5. **Domínio antigo (`calendar.guiafinanceiro.pro`) foi desativado de propósito.** Não recriar o router Traefik pra ele sem pedido explícito do dono.
 
-6. **Agenda de backup automático (`cron`) tem status incerto.** O script `scripts/backup.sh` existe e foi testado manualmente no VPS, mas o registro no `crontab` foi bloqueado pro Claude Code executar diretamente numa sessão anterior — confirmar com o dono se ele rodou o comando por conta própria antes de assumir que backups diários estão de fato acontecendo.
+6. **Backup automático diário está agendado** via cron (`0 3 * * * /opt/conarem-app/scripts/backup.sh ...`), confirmado em 2026-09-22 — não precisa reagendar, só checar `ssh root@185.137.92.141 "crontab -l"` se suspeitar que sumiu.
 
 7. **Pagopar nunca foi testado com credenciais reais.** O fluxo (checkout → criação de pedido → webhook → confirmação server-to-server) está implementado, mas o mapeamento exato de campos da API do Pagopar é baseado em documentação antiga (PDF de 2017 + fragmentos de PRs no GitHub) — tratar como não-verificado até um teste ponta a ponta real.
+
+8. **Envio de email (recuperação de senha) ainda não está configurado em produção.** `src/services/mailer.js` faz no-op silencioso (só loga um erro) se `smtpHost`/`smtpUser`/`smtpPass` não estiverem preenchidos no dashboard admin (Configurações → "Envio de emails"). Até alguém preencher isso com uma conta de email real de `simuresi.com.py`, `/api/auth/forgot-password` sempre responde `{ok:true}` mas nenhum email de fato sai.
